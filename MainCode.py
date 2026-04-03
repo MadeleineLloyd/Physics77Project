@@ -17,3 +17,4 @@ nt = 100
 tmax = 10.0
 dt = T / nt
 t = np.linspace(0, tmax, nt)
+print(t)
