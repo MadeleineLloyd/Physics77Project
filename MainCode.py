@@ -14,6 +14,6 @@ k = fft.fftfreq(nx, dx) * 2 * np.pi
 
 # Time evolution
 nt = 100
-T = 10.0
+tmax = 10.0
 dt = T / nt
-t = np.linspace(0, T, nt)
+t = np.linspace(0, tmax, nt)
