@@ -3,32 +3,31 @@ from scipy import fft
 import matplotlib.pyplot as plt
 
 # Position space (1D)
-nx = 256
-xmin, xmax = -10, 10
-dx = (xmax - xmin) / nx
-x = np.linspace(xmin, xmax, nx, endpoint=False)
+# takes number of points, xmin and xmax and returns x list, fourier transformed frequiences as k, and the spacing 
+def assemble_grid(nx, xmin,xmax):
+    dx = (xmax - xmin) / nx
+    x = np.linspace(xmin, xmax, nx, endpoint=False)
+    k = fft.fftfreq(nx,dx) * 2 *np.pi
+    dk = 2 * np.pi/(nx*dx)
+    return x, k, dx, dk
 
-# Momentum space (1D)
-dk = 2 * np.pi / (nx * dx)
-k = fft.fftfreq(nx, dx) * 2 * np.pi
-
-# Time evolution
-nt = 100
-tmax = 10.0
-dt = tmax / nt
-t = np.linspace(0, tmax, nt)
+# Time evolution - takes total number of times and final time, returns full list of t to use and delta t
+def set_times(nt,tmax):
+    dt = tmax/nt
+    t = np.linspace(0,tmax,nt)
+    return t, dt
 
 #Define constants (For right now, setting hbar and m, which is mass of e, to 1)
 hbar = 1
 m = 1
 
 #Initial Wave function
-x0 = -5.0
-sigma = 1.0
-k0 = 3.0
+def Gaussian_Wavepacket(x0,x,sigma,k0): #Takes basic initial conditions and returns UNNORMALIZED initial wave function
+    psi = np.exp(-(x - x0)**2 / (2 * sigma**2)) * np.exp(1j * k0 * x) # e^-2(x-x0)/2(sig^2) * e^i factor = Gaussian wave packet * phase
+    return psi
 
-psi = np.exp(-(x - x0)**2 / (2 * sigma**2)) * np.exp(1j * k0 * x) # e^-2(x-x0)/2(sig^2) * e^i factor = Gaussian wave packet * phase
-psi /= np.sqrt(np.sum(np.abs(psi)**2) * dx) # to normalize psi
+def normalize(psi,dx): #takes a wavefunction and delta x to properly normalize wf
+    return psi /= np.sqrt(np.sum(np.abs(psi)**2) * dx) # to normalize psi
 
 
 # Different potentials
