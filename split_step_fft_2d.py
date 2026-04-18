@@ -18,9 +18,9 @@ class Params2D:
     dt            = T / Nsteps          # time step
 
     # Initial 2D Gaussian wave packet  ψ₀ = A·exp(-((x-x0)²+(y-y0)²)/4σ²)·exp(i(k0x·x + k0y·y))
-    x0, y0        = -8.0, 0.0           # initial position
-    sigma         = 1.5                 # isotropic spatial width
-    k0x,k0y       = 6.0, 0.0            # central wave vector
+    x0, y0        = -5.0, 0.0           # initial position
+    sigma         = 1.0                 # isotropic spatial width
+    k0x,k0y       = 3.0, 0.0            # central wave vector
 
 
     # Potential selection: 'free' | 'double_slit' | 'harmonic_2d'
@@ -30,7 +30,7 @@ class Params2D:
     V0            = 50.0                # barrier height [a.u.]
     wall_thick    = 0.3                 # barrier thickness in x [a.u.]
     slit_sep      = 2.0                 # centre-to-centre slit separation [a.u.]
-    slit_width    = 0.4                 # half-width of each slit opening [a.u.]
+    slit_width    = 0.4                 # width of each slit opening [a.u.]
 
     # Harmonic oscillator (2D isotropic)
     omega         = 1.0                 # angular frequency
@@ -48,7 +48,7 @@ X, Y = np.meshgrid(x, y, indexing='ij')                     # 2D coordinate arra
 
 # 2D momentum grids (fftfreq × 2π/step)
 kx = 2 * np.pi * fft.fftfreq(p.Nx, d=p.dx)                  
-ky = 2 * np.pi * fft.fftfreq(p.Nx, d=p.dy)                  
+ky = 2 * np.pi * fft.fftfreq(p.Ny, d=p.dy)                  
 KX, KY = np.meshgrid(kx, ky, indexing='ij')                 # 2D momentum arrays
 
 
@@ -97,7 +97,7 @@ psi = gaussian_packet(X, Y, p.x0, p.y0, p.sigma, p.k0x, p.k0y).astype(np.complex
 
 # Absorbing boundary layer (complex absorbing potential / CAP)
 # Prevents reflections from the edges of the simulation box
-def absorbing_mask(x, y, Lx, Ly, width=2.0, strength=0.02):
+def absorbing_mask(x, y, Lx, Ly, width=2.0, strength=2.0):
     """Separable cosine absorbing mask: cap(x,y) = cap_x(x) · cap_y(y)."""
     def _1d_mask(coords, L):
         mask = np.ones(len(coords))
@@ -207,14 +207,16 @@ print(f"Energy drift: ΔE/E₀  = {abs(E_arr[-1]-E0)/abs(E0):.2e}")
 #  §9  VISUALIZATION
 # ─────────────────────────────────────────
 fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+extent = [-p.Lx/2, p.Lx/2, -p.Ly/2, p.Ly/2]
 
 # Panel A: Probability density animation
 ax = axes[0, 0]
-ax.set_title('Probability Density |ψ(x,t)|²')
+ax.set_title('Probability Density |ψ(x,y,t)|²')
 ax.set_xlabel('x [a.u.]')
 ax.set_ylabel('y [a.u.]')
-im = ax.imshow(snapshots[0].T, origin='lower', cmap='inferno', aspect='equal', animated=True)
-ax.contour(x, y, V.T, levels=[p.V0 / 2], linewidths=0.8)
+vmax_fixed = np.max(snapshots[0])
+im = ax.imshow(snapshots[0].T, origin='lower', extent=extent, cmap='inferno', aspect='equal', animated=True, vmin=0, vmax=vmax_fixed)
+ax.contour(x, y, V.T, levels=[p.V0 / 2], linewidths=0.8, colors='white')
 time_text = ax.text(0.02, 0.96, '', transform=ax.transAxes, va='top')
 
 # Panel B: Expectation values ⟨x⟩ and ⟨p⟩
@@ -246,7 +248,6 @@ plt.tight_layout(pad=2.0)
 # Animation update function
 def update(frame):
     im.set_data(snapshots[frame].T)
-    im.set_clim(vmax=np.max(snapshots[frame]))          # rescale colour range each frame
     time_text.set_text(f't = {t_arr[frame]:.2f} a.u.')
     return im, time_text
 
