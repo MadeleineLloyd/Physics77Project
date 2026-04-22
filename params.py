@@ -52,7 +52,7 @@ class _BaseParams:
     def dt(self): return self.T / self.Nsteps
 
     @property
-    def save_every(self): return int(round(0.04 / self.dt)) 
+    def save_every(self): return max(1, int(round(0.04 / self.dt)))
 
 @dataclass
 class Params1D(_BaseParams):
