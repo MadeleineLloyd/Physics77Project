@@ -56,7 +56,8 @@ def plot(p, res, save_anim=True):
 
     axes[0, 1].set_title('Expectation Values', fontsize=11)
     axes[0, 1].plot(t_arr, res['x_arr'], lw=1.5, label=r'$\langle x \rangle$')
-    axes[0, 1].plot(t_arr, res['p_arr'], lw=1.5, label=r'$\langle p \rangle$', ls='--')
+    axes[0, 1].plot(t_arr, res['p_arr'], color='red', lw=1.5, label=r'$\langle p \rangle$')
+    axes[0,1].axhline(y=0,color='black',ls='dotted')
     axes[0, 1].set_xlabel('t [a.u.]')
     axes[0, 1].legend()
 
