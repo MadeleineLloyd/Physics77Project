@@ -22,8 +22,8 @@ def energy_1d(psi, k, V, dx):
     PE = float(np.real(np.sum(V * np.abs(psi) ** 2) * dx))
     return KE + PE
 
-def transmission_1d(psi, x, dx):
-    return float(np.sum(np.abs(psi[x > 0]) ** 2) * dx)
+def transmission_1d(psi, x, x0, dx):
+    return float(np.sum(np.abs(psi[x > x0]) ** 2) * dx)
 
 
 # ── 2-D ───────────────────────────────────────────────────────────────────
@@ -43,6 +43,12 @@ def expect_px_2d(psi, KX, dx, dy):
     dkx, dky = 2 * np.pi / (Nx * dx), 2 * np.pi / (Ny * dy)
     return float(np.real(np.sum(KX * np.abs(psi_k) ** 2) * dkx * dky))
 
+def expect_py_2d(psi, KY, dx, dy):
+    Nx, Ny = psi.shape
+    psi_k  = _fft.fft2(psi) * dx * dy / (2 * np.pi)
+    dkx, dky = 2 * np.pi / (Nx * dx), 2 * np.pi / (Ny * dy)
+    return float(np.real(np.sum(KY * np.abs(psi_k) ** 2) * dkx * dky))
+
 def energy_2d(psi, KX, KY, V, dx, dy):
     Nx, Ny = psi.shape
     psi_k  = _fft.fft2(psi) * dx * dy / (2 * np.pi)
@@ -51,5 +57,5 @@ def energy_2d(psi, KX, KY, V, dx, dy):
     PE = float(np.real(np.sum(V * np.abs(psi) ** 2) * dx * dy))
     return KE + PE
 
-def transmitted_prob_2d(psi, x, dx, dy):
-    return float(np.sum(np.abs(psi[x > 0, :]) ** 2) * dx * dy)
+def transmission_2d(psi, x, x0, dx, dy):
+    return float(np.sum(np.abs(psi[x > x0, :]) ** 2) * dx * dy)

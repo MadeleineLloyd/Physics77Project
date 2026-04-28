@@ -25,8 +25,8 @@ def strang_step(psi, V, K2, dt, cap, fwd, inv):
 
 def yoshida_step(psi, V, K2, dt, cap, fwd, inv):
     for w in (_W1, _W0, _W1):
-        psi = strang_step(psi, V, K2, w * dt, cap, fwd, inv)
-    return psi
+        psi = strang_step(psi, V, K2, w * dt, 1.0, fwd, inv)
+    return psi * cap
 
 
 def step(psi, V, K2, dt, cap, fwd, inv, order=2):
@@ -37,4 +37,4 @@ def step(psi, V, K2, dt, cap, fwd, inv, order=2):
     elif order == 4:
         return yoshida_step(psi, V, K2, dt, cap, fwd, inv)
     else:
-        raise ValueError(f"Unsupported order {p.order!r}. Choose 1, 2, or 4.")
+        raise ValueError(f"Unsupported order {order!r}. Choose 1, 2, or 4.")

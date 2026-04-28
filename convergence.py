@@ -1,63 +1,79 @@
-import argparse
+import copy
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import fft
 
-from params      import Params1D
-from grids       import make_grid_1d, absorbing_mask_1d
-from potentials  import make_potential_1d
-from propagator  import step
+from params     import Params1D, auto_parser, parse_into
+from grids      import make_grid_1d, absorbing_mask_1d
+from potentials import make_potential_1d
+from propagator import step
+from exact      import coherent_gaussian_packet_1d, free_gaussian_packet_1d
 
 
-def psi_exact_sho(x, t, x0, k0, sigma, omega):
-    x_c = x0 * np.cos(omega * t) + (k0 / omega) * np.sin(omega * t)
-    k_c = k0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
-    E   = 0.5 * (k0**2 + omega**2 * x0**2) + 0.5 * omega
-    phi = E * t - 0.5 * (x_c * k_c - x0 * k0)
-    env = np.exp(-(x - x_c)**2 / (4 * sigma**2))
-    return (2 * np.pi * sigma**2)**(-0.25) * env * np.exp(1j * (k_c * x - phi))
-
-
-def measure_error(order, T, Nsteps, N, L, x0, k0, sigma, omega, cap_width):
-    p = Params1D(T=T, Nsteps=Nsteps, N=N, L=L, x0=x0, sigma=sigma, k0=k0,
-                 potential='harmonic', omega=omega, order=order,
-                 cap_width=cap_width, cap_strength=0.000)
+def measure_error(p, order):
     x, k = make_grid_1d(p)
     V    = make_potential_1d(x, p)
     cap  = absorbing_mask_1d(x, p)
-    psi  = psi_exact_sho(x, 0.0, x0, k0, sigma, omega)
 
-    for _ in range(Nsteps):
-        psi = step(psi, V, k**2, p.dt, cap, fft.fft, fft.ifft, p.order)
+    if p.potential == 'harmonic':
+        psi0 = coherent_gaussian_packet_1d(x, 0.0, p)
+        psi_exact = coherent_gaussian_packet_1d(x, p.T, p)
+    elif p.potential == 'free':
+        psi0 = free_gaussian_packet_1d(x, 0.0, p)
+        psi_exact = free_gaussian_packet_1d(x, p.T, p)
+    else:
+        raise ValueError("Error measurement only supports 'free' or 'harmonic' potentials.")
 
-    ref = psi_exact_sho(x, Nsteps * p.dt, x0, k0, sigma, omega)
-    overlap = np.sum(np.conj(ref) * psi) * p.dx
+    psi = psi0
+    for _ in range(p.Nsteps):
+        psi = step(psi, V, k**2, p.dt, cap, fft.fft, fft.ifft, order)
+
+    overlap = np.sum(np.conj(psi_exact) * psi) * p.dx
     phase = overlap / abs(overlap)
-    return float(np.sqrt(np.sum(np.abs(psi / phase - ref)**2) * p.dx))
+    return float(np.sqrt(np.sum(np.abs(psi / phase - psi_exact) ** 2) * p.dx))
 
 
-def run_convergence(T=5.0, omega=1.0, x0=-5.0, k0=0.0,
-                    N=2048, L=20.0, n_dt=10, dt_coarse=1.0, dt_fine=0.03):
-    sigma = 1.0 / np.sqrt(2 * omega)
-    cap_w = min(2.0, L / 12)
-    orders = [1, 2, 4]
-    dt_vals = np.geomspace(dt_coarse, dt_fine, n_dt)
+def run_convergence_dt(p, T=5.0, orders=(1, 2, 4), n_dt=10, dt_coarse=0.5, dt_fine=0.05):
+    p_base = copy.deepcopy(p)
+    p_base.T = T
+
+    dt_targets = np.geomspace(dt_coarse, dt_fine, n_dt)
+    dt_vals = np.empty(n_dt)
     errors = np.zeros((len(orders), n_dt))
 
-    for i, order in enumerate(orders):
-        print(f"order {order}:", end=' ', flush=True)
-        for j, dt in enumerate(dt_vals):
-            Nsteps = int(round(T / dt))
-            errors[i, j] = measure_error(order, T, Nsteps, N, L, x0, k0, sigma, omega, cap_w)
-            print('.', end='', flush=True)
-        print()
+    for j, dt_target in enumerate(dt_targets):
+        p_test = copy.deepcopy(p_base)
+        p_test.Nsteps = max(1, int(round(T / dt_target)))
+        dt_vals[j] = p_test.dt
+        for i, order in enumerate(orders):
+            errors[i, j] = measure_error(p_test, order)
 
-    mid = n_dt // 2
+    mid = max(1, n_dt // 2)
     slopes = [np.polyfit(np.log10(dt_vals[mid:]), np.log10(errors[i, mid:]), 1)[0]
               for i in range(len(orders))]
-    return dt_vals, errors, slopes, orders
+    return dt_vals, errors, slopes
 
 
-def print_table(dt_vals, errors, slopes, orders):
+def run_convergence_N(p, T=5.0, orders=(1, 2, 4), N_values=None, dt_fixed=0.001):
+    if N_values is None:
+        N_values = [16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 192, 256]
+
+    p_base = copy.deepcopy(p)
+    p_base.T = T
+    p_base.Nsteps = max(1, int(round(T / dt_fixed)))
+
+    errors = np.zeros((len(orders), len(N_values)))
+    dx_values = np.empty(len(N_values))
+    for j, N in enumerate(N_values):
+        p_test = copy.deepcopy(p_base)
+        p_test.N = N
+        dx_values[j] = p_test.L / N
+        for i, order in enumerate(orders):
+            errors[i, j] = measure_error(p_test, order)
+    return dx_values, errors
+
+
+def plot_dt(dt_vals, errors, slopes, orders):
     print("\nΔt".ljust(10) + "order 1".rjust(14) + "order 2".rjust(14) + "order 4".rjust(14))
     print("-" * 52)
     for j, dt in enumerate(dt_vals):
@@ -66,17 +82,48 @@ def print_table(dt_vals, errors, slopes, orders):
     for o, s in zip(orders, slopes):
         print(f"  order {o}: {s:+.3f}")
 
+    plt.figure()
+    colors = ['C0', 'C1', 'C2']
+    for i, order in enumerate(orders):
+        plt.loglog(dt_vals, errors[i], 'o-', color=colors[i], label=f'order {order}')
+        coeffs = np.polyfit(np.log10(dt_vals), np.log10(errors[i]), 1)
+        fit_line = 10**coeffs[1] * dt_vals**coeffs[0]
+        plt.loglog(dt_vals, fit_line, '--', color=colors[i], alpha=0.7,
+                   label=f'fit order {order} (slope {coeffs[0]:.2f})')
+    plt.xlabel('Δt')
+    plt.ylabel(r'$L^2$ error')
+    plt.legend()
+    plt.title('Error vs Δt')
+    plt.grid(True, which='both', ls='--', alpha=0.5)
+    plt.tight_layout()
+
+
+def plot_dx(dx_values, errors, orders):
+    print("\ndx".ljust(10) + "order 1".rjust(14) + "order 2".rjust(14) + "order 4".rjust(14))
+    print("-" * 52)
+    for j, dx in enumerate(dx_values):
+        print(f"{dx:<10.5e}{errors[0,j]:>14.4e}{errors[1,j]:>14.4e}{errors[2,j]:>14.4e}")
+
+    plt.figure()
+    plt.loglog(dx_values, errors[0], 'o-', label='order 1')
+    plt.loglog(dx_values, errors[1], 'o-', label='order 2')
+    plt.loglog(dx_values, errors[2], 'o-', label='order 4')
+    plt.xlabel(r'$\Delta x$')
+    plt.ylabel(r'$L^2$ error')
+    plt.legend()
+    plt.title('Error vs Δx')
+    plt.grid(True, which='both', ls='--', alpha=0.5)
+    plt.tight_layout()
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--no-plot', action='store_true')
-    args = parser.parse_args()
-    dt_vals, errors, slopes, orders = run_convergence()
-    print_table(dt_vals, errors, slopes, orders)
-    if not args.no_plot:
-        import matplotlib.pyplot as plt
-        plt.loglog(dt_vals, errors[0], 'o-', label='Lie')
-        plt.loglog(dt_vals, errors[1], 'o-', label='Strang')
-        plt.loglog(dt_vals, errors[2], 'o-', label='Yoshida')
-        plt.xlabel('Δt'); plt.ylabel(r'$L^2$ error'); plt.legend()
-        plt.title('Split-step FFT convergence'); plt.show()
+    p = Params1D(potential='harmonic', N=256, L=20.0, x0=(-5.0,), k0=(0.0,), sigma0=(1 / np.sqrt(2),), omega=1.0)
+
+    orders = [1, 2, 4]
+    dt_vals, dt_errors, slopes = run_convergence_dt(p)
+    plot_dt(dt_vals, dt_errors, slopes, orders)
+
+    dx_values, dx_errors = run_convergence_N(p)
+    plot_dx(dx_values, dx_errors, orders)
+
+    plt.show()
