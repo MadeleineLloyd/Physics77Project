@@ -31,7 +31,6 @@ From the repository root, run one of the main scripts:
 ```bash
 python run_1d.py
 python run_2d.py
-python run_double_slit.py
 python exact.py
 python convergence.py
 ```
