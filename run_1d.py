@@ -23,9 +23,9 @@ def run(p):
     t = 0.0
 
     for n in range(p.Nsteps):
-        V = make_potential_1d(x, p, t)
         psi = step(psi, V, k ** 2, p.dt, cap, fft.fft, fft.ifft, p.order)
         t += p.dt
+        V = make_potential_1d(x, p, t)
         if n % p.save_every == 0:
             t_arr.append(t)
             V_arr.append(V)
