@@ -52,9 +52,9 @@ def run(p):
     if p.potential == 'barrier' or p.potential == 'double_slit':
         T = transmission_2d(psi, x, p.barrier_width / 2, p.dx, p.dy)
         print(f"Transmitted fraction = {T:.4f}")
-    elif p.potential == 'berry':
+    elif p.potential == 'driven_harmonic':
         overlap = np.sum(np.conj(psi0) * psi) * p.dx * p.dy
-        gamma = np.angle(overlap) + np.trapezoid(E_arr, dx=p.dt)
+        gamma = np.angle(overlap) + 0.5 * p.omega * p.T
         gamma = np.arctan2(np.sin(gamma), np.cos(gamma))
         print(f"Geometric phase γ = {gamma:+.4f} rad  (theory: {2 * np.pi * p.A ** 2 * np.omega:+.4f} rad)")
     return dict(x=x, y=y, X=X, Y=Y, psi_final=psi, t_arr=t_arr, V_arr=V_arr, norm_arr=norm_arr,
