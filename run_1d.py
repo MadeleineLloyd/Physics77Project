@@ -42,9 +42,9 @@ def run(p):
     if p.potential == 'barrier':
         T = transmission_1d(psi, x, p.barrier_width / 2, p.dx)
         print(f"T = {T:.4f}")
-    elif p.potential == 'berry':
+    elif p.potential == 'driven_harmonic':
         overlap = np.sum(np.conj(psi0) * psi) * p.dx
-        gamma = np.angle(overlap) + np.trapezoid(E_arr, t_arr)
+        gamma = np.angle(overlap) + 0.5 * p.omega * p.T
         gamma = np.arctan2(np.sin(gamma), np.cos(gamma))
         print(f"Fidelity |⟨ψ0|ψ⟩| = {abs(overlap):.6f}  (theory: 1)")
         print(f"Geometric phase γ = {gamma:.5f} rad  (theory: {np.pi * p.A ** 2 * p.omega:.5f} rad)")
