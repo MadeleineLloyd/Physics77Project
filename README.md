@@ -42,7 +42,7 @@ A Python toolkit for simulating quantum wavepacket dynamics in 1D and 2D using t
 Requires Python ≥ 3.9.
 
 ```bash
-pip install numpy scipy matplotlib
+pip install numpy scipy matplotlib pillow
 ```
 
 No other dependencies are needed.
